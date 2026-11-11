@@ -1,0 +1,57 @@
+{
+  "windows": [
+    {
+      "name": "w64devkit",
+      "version": "2.11.0",
+      "archive": "w64devkit-x64-2.11.0.7z.exe",
+      "url": "https://github.com/skeeto/w64devkit/releases/download/v2.11.0/w64devkit-x64-2.11.0.7z.exe",
+      "sha256": "54c2bb9962e8a30c8270e34c5efc3d5fee579f53087fa7d435b95fbba2af7b2b"
+    },
+    {
+      "name": "ffmpeg",
+      "version": "7.1.4",
+      "archive": "ffmpeg-7.1.4.tar.xz",
+      "url": "https://ffmpeg.org/releases/ffmpeg-7.1.4.tar.xz",
+      "sha256": "71f4aac3573ed9060489cb62526a6c7dda815ae10993789611acd7be9fa9fbf4"
+    }
+  ],
+  "android": [
+    {
+      "target": "ndk",
+      "url": "https://dl.google.com/android/repository/android-ndk-r28c-windows.zip",
+      "official_checksum_algorithm": "sha1",
+      "official_checksum": "086bba43ff2f5eb0e387b15c8278bb4e0d89ba1d",
+      "sha256": "6bec98ac2354d8a919760889a1a41d020132e5e8cfa1b1fe51610a72c36a466b",
+      "bytes": 748118221
+    },
+    {
+      "target": "sdk/platforms/android-35",
+      "url": "https://dl.google.com/android/repository/platform-35_r02.zip",
+      "official_checksum_algorithm": "sha1",
+      "official_checksum": "0bb560a90a7a2cbd0dd8348224d518b638fe7949",
+      "sha256": "0988cacad01b38a18a47bac14a0695f246bc76c1b06c0eeb8eb0dc825ab0c8e0",
+      "bytes": 64273788
+    },
+    {
+      "target": "sdk/build-tools/35.0.0",
+      "url": "https://dl.google.com/android/repository/build-tools_r35_windows.zip",
+      "official_checksum_algorithm": "sha1",
+      "official_checksum": "af059bb67cf7786f45ee0db85e2d24985df1b4b6",
+      "sha256": "5753c679a1b90bcf6fbc9945a2ce39dfb9e74f1df0831a1e1866ae5b594326f0",
+      "bytes": 59878107
+    },
+    {
+      "target": "jdk",
+      "url": "https://aka.ms/download-jdk/microsoft-jdk-21.0.13.0.2-windows-x64.zip",
+      "official_checksum_algorithm": "sha256",
+      "official_checksum": "c5706a9cf482ef1a0622a86eea5b13d557b07f04554572af061e2d02b58c0f99",
+      "sha256": "c5706a9cf482ef1a0622a86eea5b13d557b07f04554572af061e2d02b58c0f99",
+      "bytes": 201450315
+    }
+  ],
+  "donor": {
+    "url": "https://github.com/sp00nznet/psprecomp",
+    "revision": "0ad357fed8fd4a59226034ff6e61aaba2a0d27bb",
+    "included": "patched source with per-file manifest"
+  }
+}

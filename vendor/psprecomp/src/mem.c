@@ -1,0 +1,224 @@
+/* psprecomp — PSP memory map. See include/psprecomp/mem.h. */
+
+#include "psprecomp/mem.h"
+#include "psprecomp/dispatch.h"
+#include "psprecomp/cpu.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdatomic.h>
+
+psp_memory psp_mem;
+uint64_t   psp_mem_bad_access;
+static psp_mem_fault_fn g_fault;
+static _Thread_local psp_mem_access_guard g_access_guard;
+/* Android API26 implements TLS through a runtime lookup. Most guest accesses
+ * have no guard, so consult TLS only while any thread owns one. This count is
+ * only a zero fast path: the guard and its ownership remain thread-local.
+ * Publish a thread's contribution before installing its guard, and clear its
+ * guard before retiring the contribution. Nested replacement keeps one slot. */
+static atomic_uint g_access_guard_threads;
+static inline psp_mem_access_guard access_guard(void) {
+    return atomic_load_explicit(&g_access_guard_threads,memory_order_relaxed) ? g_access_guard : NULL;
+}
+psp_mem_access_guard psp_mem_set_access_guard(psp_mem_access_guard guard) {
+    psp_mem_access_guard old=g_access_guard;
+    if(!old&&guard)atomic_fetch_add_explicit(&g_access_guard_threads,1,memory_order_relaxed);
+    g_access_guard=guard;
+    if(old&&!guard)atomic_fetch_sub_explicit(&g_access_guard_threads,1,memory_order_relaxed);
+    return old;
+}
+void psp_mem_set_fault_handler(psp_mem_fault_fn fn) { g_fault = fn; }
+
+/* Watch writes to one address. "Which code writes this word" is a question
+ * that came up repeatedly and could only be answered by guessing; the write
+ * path is the one place that can answer it directly. */
+static uint32_t g_wwatch, g_wwatch_val;
+static int g_whits, g_wwatch_has_val;
+void psp_mem_watch_write(uint32_t addr) { g_wwatch = addr; g_whits = 0; g_wwatch_has_val = 0; }
+/* Only the writes that leave `value` in the word at `addr`: for a slot written
+ * all the time (a stack frame), the one write that put a bad value there. */
+void psp_mem_watch_write_value(uint32_t addr, uint32_t value) {
+    g_wwatch = addr; g_wwatch_val = value; g_wwatch_has_val = 1; g_whits = 0;
+}
+int psp_mem_watch_hits(void) { return g_whits; }
+
+/* Called after the write, so a value watch sees the word as it now is. */
+static void note_write(uint32_t addr, uint32_t width) {
+    if (!g_wwatch || addr + width <= g_wwatch || addr > g_wwatch) return;
+    if (g_wwatch_has_val) {
+        uint32_t now;
+        void *q = psp_mem_ptr(g_wwatch & ~3u, 4);
+        if (!q) return;
+        memcpy(&now, q, 4);
+        if (now != g_wwatch_val) return;
+    }
+    if (g_whits++ < 8)
+        fprintf(stderr, "write%u to 0x%08X (watch 0x%08X) from fn 0x%08X, ra 0x%08X sp 0x%08X\n",
+                width * 8, addr, g_wwatch, psp_trace_last(), psp_cpu.r[31], psp_cpu.r[29]);}
+
+/* Watch reads of one address: "which code looks at this" is the question when
+ * a value is right in memory and the game still does not act on it. A field
+ * read every frame would repeat one name forever, so each distinct reading
+ * function is printed once. */
+static uint32_t g_rwatch;
+static uint32_t g_rfns[16];
+static int g_rfn_n;
+void psp_mem_watch_read(uint32_t addr) { g_rwatch = addr; g_rfn_n = 0; }
+
+static void note_read(uint32_t addr, uint32_t width) {
+    if (!g_rwatch || addr + width <= g_rwatch || addr > g_rwatch) return;
+    uint32_t fn = psp_trace_last();
+    for (int i = 0; i < g_rfn_n; i++) if (g_rfns[i] == fn) return;
+    if (g_rfn_n < 16) {
+        g_rfns[g_rfn_n++] = fn;
+        fprintf(stderr, "read%u of 0x%08X (watch 0x%08X) from fn 0x%08X\n",
+                width * 8, addr, g_rwatch, fn);
+    }
+}
+
+/* Bad accesses were only ever counted, which says an initialiser went wrong
+ * without saying which one. The addresses are what identify it, and there are
+ * few enough of them (28 in the current run) to simply print. */
+static void bad_access(uint32_t addr, int write, int width) {
+    /* The first one matters most: everything after it may be cascade from a
+     * register that was already wrong. Dump the whole file once. */
+    if (psp_mem_bad_access == 0) {
+        static const char *N[32] = {
+            "zero","at","v0","v1","a0","a1","a2","a3","t0","t1","t2","t3",
+            "t4","t5","t6","t7","s0","s1","s2","s3","s4","s5","s6","s7",
+            "t8","t9","k0","k1","gp","sp","fp","ra" };
+        fprintf(stderr, "\n--- first bad access: %s%d at 0x%08X (last fn 0x%08X) ---\n",
+                write ? "write" : "read", width * 8, addr, psp_trace_last());
+        for (int i = 0; i < 32; i += 4)
+            fprintf(stderr, "  %-3s=0x%08X  %-3s=0x%08X  %-3s=0x%08X  %-3s=0x%08X\n",
+                    N[i], psp_cpu.r[i], N[i+1], psp_cpu.r[i+1],
+                    N[i+2], psp_cpu.r[i+2], N[i+3], psp_cpu.r[i+3]);
+    }
+    if (psp_mem_bad_access < 32)
+        fprintf(stderr, "psprecomp: bad %s%d at 0x%08X (last fn 0x%08X)\n",
+                write ? "write" : "read", width * 8, addr, psp_trace_last());
+    psp_mem_bad_access++;
+    if (g_fault) g_fault(addr, write, width);
+}
+
+int psp_mem_init(void) {
+    psp_mem.ram     = (uint8_t *)calloc(1, PSP_RAM_SIZE);
+    psp_mem.vram    = (uint8_t *)calloc(1, PSP_VRAM_SIZE);
+    psp_mem.scratch = (uint8_t *)calloc(1, PSP_SCRATCH_SIZE);
+    if (!psp_mem.ram || !psp_mem.vram || !psp_mem.scratch) {
+        psp_mem_free();
+        return -1;
+    }
+    psp_mem_bad_access = 0;
+    return 0;
+}
+
+void psp_mem_free(void) {
+    free(psp_mem.ram);
+    free(psp_mem.vram);
+    free(psp_mem.scratch);
+    psp_mem.ram = psp_mem.vram = psp_mem.scratch = NULL;
+}
+
+/* The loaded module image, for a PRX linked outside the RAM window. */
+static uint8_t *g_module;
+static uint32_t g_module_base, g_module_size;
+
+int psp_mem_map_module(uint32_t base, uint32_t size) {
+    free(g_module);
+    g_module = (uint8_t *)calloc(1, size ? size : 1);
+    if (!g_module) { g_module_size = 0; return -1; }
+    g_module_base = base;
+    g_module_size = size;
+    return 0;
+}
+
+void *psp_mem_ptr(uint32_t addr, uint32_t size) {
+    /* Collapse the three cache-behaviour mirrors onto one backing store. */
+    const uint32_t a = addr & PSP_ADDR_MASK;
+
+    /* Checked first: a module linked at 0 would otherwise fall through every
+     * region test and read as unmapped. */
+    if (g_module_size && a >= g_module_base && a < g_module_base + g_module_size) {
+        uint32_t off = a - g_module_base;
+        if (off + size > g_module_size) return NULL;
+        return g_module + off;
+    }
+
+    if (a >= PSP_RAM_BASE && a < PSP_RAM_BASE + PSP_RAM_SIZE) {
+        uint32_t off = a - PSP_RAM_BASE;
+        if (off + size > PSP_RAM_SIZE) return NULL;   /* straddles the end */
+        return psp_mem.ram + off;
+    }
+    /* VRAM shows up four times, at 0x04000000, 0x04200000, 0x04400000 and
+     * 0x04600000 (the hardware uses the other views for the depth buffer's
+     * layouts). Plain mirrors here: MHFU's village reads through 0x04200000,
+     * and every read there used to fail as unmapped. */
+    if (a >= PSP_VRAM_BASE && a < PSP_VRAM_BASE + 4 * PSP_VRAM_SIZE) {
+        uint32_t off = (a - PSP_VRAM_BASE) & (PSP_VRAM_SIZE - 1);
+        if (off + size > PSP_VRAM_SIZE) return NULL;
+        return psp_mem.vram + off;
+    }
+    if (a >= PSP_SCRATCH_BASE && a < PSP_SCRATCH_BASE + PSP_SCRATCH_SIZE) {
+        uint32_t off = a - PSP_SCRATCH_BASE;
+        if (off + size > PSP_SCRATCH_SIZE) return NULL;
+        return psp_mem.scratch + off;
+    }
+    return NULL;
+}
+
+/* Reads of unmapped memory return 0 and are counted. Silently returning 0 is
+ * what hardware roughly does, but a recompiled game should never be doing it
+ * in a steady state — the counter is how you notice. */
+/* Main RAM first, inline: nearly every access is there (the module and VRAM
+ * cases go through psp_mem_ptr). */
+static inline void *ram_ptr(uint32_t addr, uint32_t size) {
+    const uint32_t off = (addr & PSP_ADDR_MASK) - PSP_RAM_BASE;
+    if (!g_module_size && off < PSP_RAM_SIZE && off + size <= PSP_RAM_SIZE) return psp_mem.ram + off;
+    return psp_mem_ptr(addr, size);
+}
+
+#define READ_BODY(TYPE)                              \
+    psp_mem_access_guard guard=access_guard();        \
+    if(guard)guard(addr,(uint32_t)sizeof(TYPE),0);     \
+    void *p = ram_ptr(addr, (uint32_t)sizeof(TYPE)); \
+    if (!p) { bad_access(addr, 0, (int)sizeof(TYPE)); return 0; }      \
+    if (g_rwatch) note_read(addr, (uint32_t)sizeof(TYPE));             \
+    TYPE v;                                          \
+    memcpy(&v, p, sizeof v);                         \
+    return v;
+
+uint8_t  psp_read8 (uint32_t addr) { READ_BODY(uint8_t)  }
+uint16_t psp_read16(uint32_t addr) { READ_BODY(uint16_t) }
+uint32_t psp_read32(uint32_t addr) { READ_BODY(uint32_t) }
+float    psp_read_f32(uint32_t addr) { READ_BODY(float)  }
+
+#define WRITE_BODY(TYPE)                             \
+    psp_mem_access_guard guard=access_guard();        \
+    if(guard)guard(addr,(uint32_t)sizeof(TYPE),1);     \
+    void *p = ram_ptr(addr, (uint32_t)sizeof(TYPE)); \
+    if (!p) { bad_access(addr, 1, (int)sizeof(TYPE)); return; }         \
+    memcpy(p, &val, sizeof(TYPE));                               \
+    if (g_wwatch) note_write(addr, (uint32_t)sizeof(TYPE));
+
+void psp_write8 (uint32_t addr, uint8_t  val) { WRITE_BODY(uint8_t)  }
+void psp_write16(uint32_t addr, uint16_t val) { WRITE_BODY(uint16_t) }
+void psp_write32(uint32_t addr, uint32_t val) { WRITE_BODY(uint32_t) }
+void psp_write_f32(uint32_t addr, float  val) { WRITE_BODY(float)    }
+
+int psp_mem_write_block(uint32_t addr, const void *src, uint32_t len) {
+    psp_mem_access_guard guard=access_guard();if(guard)guard(addr,len,1);
+    void *p = psp_mem_ptr(addr, len);
+    if (!p) return -1;
+    memcpy(p, src, len);
+    return 0;
+}
+
+int psp_mem_read_block(void *dst, uint32_t addr, uint32_t len) {
+    psp_mem_access_guard guard=access_guard();if(guard)guard(addr,len,0);
+    void *p = psp_mem_ptr(addr, len);
+    if (!p) return -1;
+    memcpy(dst, p, len);
+    return 0;
+}

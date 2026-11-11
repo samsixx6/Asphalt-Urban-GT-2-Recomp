@@ -1,0 +1,2 @@
+# Preserve exported bytes for source-manifest checks on every platform.
+* -text

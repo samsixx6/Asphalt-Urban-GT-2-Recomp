@@ -1,0 +1,2 @@
+"""Single audited list of host-owned display extension sources for both builds."""
+DISPLAY_SOURCES=['display_hooks','display_pose','display_semantics','display_semantic_hooks','display_semantic_rules','display_game_menu','display_icon','display_settings','display_view','display_menu','display_ui','display_session','startup_logos','native_packets','native_engine','native_preview','native_camera','auto_accelerate','race_controls']

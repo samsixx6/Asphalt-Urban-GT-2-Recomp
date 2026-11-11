@@ -1,0 +1,63 @@
+diff --git a/tools/allegrexrecomp/main.c b/tools/allegrexrecomp/main.c
+index 82b6f37..60ad75e 100644
+--- a/tools/allegrexrecomp/main.c
++++ b/tools/allegrexrecomp/main.c
+@@ -32,8 +32,8 @@ static int usage(void) {
+         "  allegrexrecomp extract <file.iso> <substring> <outdir>\n"
+         "  allegrexrecomp dis     <file> [start-addr] [count]\n"
+         "  allegrexrecomp cover   <file>\n"
+-        "  allegrexrecomp funcs   <file> [--list]\n"
+-        "  allegrexrecomp emit    <file> <outdir> [prefix] [--seeds FILE]\n"
++        "  allegrexrecomp funcs   <file> [--list] [--strict-exec]\n"
++        "  allegrexrecomp emit    <file> <outdir> [prefix] [--seeds FILE] [--strict-exec]\n"
+         "  allegrexrecomp dump    <file> <addr>\n"
+         "  allegrexrecomp decrypt <file> [--keys <path>]\n"
+         "  allegrexrecomp kirk1   <file> [out] [--keys <path>]\n"
+@@ -463,6 +463,10 @@ static int cmd_cover(const char *path) {
+  * only ever called from an overlay the game loads at run time is invisible to
+  * discovery over the module alone. Seeds outside the image are ignored. */
+ static const char *g_seeds_path;
++/* Prototype diagnostic policy: only walk the section-declared executable
++ * extent. Keep the complete image available for jump-table/data reads.
++ * Off by default because some other titles execute initialisers in .data. */
++static int g_strict_exec;
+ 
+ static int read_extra_seeds(uint32_t lo, uint32_t hi, uint32_t **out) {
+     *out = NULL;
+@@ -519,6 +523,21 @@ static int load_and_discover(const char *path, psp_blob *b, elf_info *e,
+         an->base = e->text_addr;
+         an->size = e->text_size;
+     }
++    if (g_strict_exec) {
++        if (!e->text_from_section ||
++            (e->stub_size && e->stub_offset - e->text_offset != e->stub_addr - e->text_addr)) {
++            fprintf(stderr, "--strict-exec requires section-derived, contiguous text and import stubs\n");
++            psp_blob_free(b);
++            return -1;
++        }
++        uint32_t end = e->text_addr + e->text_size;
++        if (e->stub_size && e->stub_addr + e->stub_size > end)
++            end = e->stub_addr + e->stub_size;
++        an->code = b->data + e->text_offset;
++        an->base = e->text_addr;
++        an->size = end - an->base;
++        printf("analysis policy: strict executable sections; full image retained for data reads\n");
++    }
+     an->scan_base = e->text_addr;
+     an->scan_size = e->text_size;
+     an->stub_addr = e->stub_addr;
+@@ -1053,6 +1072,14 @@ int main(int argc, char **argv) {
+ 
+     const char *cmd = argv[1];
+ 
++    for (int i = 2; i < argc; i++) {
++        if (strcmp(argv[i], "--strict-exec")) continue;
++        g_strict_exec = 1;
++        for (int k = i; k + 1 < argc; k++) argv[k] = argv[k + 1];
++        argc--;
++        i--;
++    }
++
+     /* --seeds FILE may follow funcs, emit and dump; it is taken out of argv so
+      * the positional arguments keep their places. */
+     for (int i = 2; i + 1 < argc; i++) {

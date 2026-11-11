@@ -22,6 +22,7 @@ DOCS = {'building.md', 'windows.md', 'github-README.md', 'source-license.md'}
 SCREENSHOTS = {
     'Screenshot_20261110_013528.jpg', 'Screenshot_20261110_012830.jpg',
     'Screenshot_20261110_162103.jpg', 'Screenshot_20261110_012944.jpg',
+    'Recomp-Settings.jpg',
 }
 
 

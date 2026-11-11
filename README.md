@@ -33,11 +33,16 @@ Join the Discord community for news, updates, and support.
 
 ## Screenshots
 
-| Daytime racing and police traffic | Night racing with a classic roadster |
-| :---: | :---: |
-| <img src="screenshots/Screenshot_20261110_013528.jpg" width="360" alt="Daytime race with police traffic"> | <img src="screenshots/Screenshot_20261110_012830.jpg" width="360" alt="Night race with a classic roadster"> |
-| **Nitro drift on wet city streets** | **Night race with nitro** |
-| <img src="screenshots/Screenshot_20261110_162103.jpg" width="360" alt="Nitro drift on wet city streets"> | <img src="screenshots/Screenshot_20261110_012944.jpg" width="360" alt="Night race with nitro"> |
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/Screenshot_20261110_013528.jpg" width="360" alt="Daytime race with police traffic"></td>
+    <td align="center"><img src="screenshots/Screenshot_20261110_012830.jpg" width="360" alt="Night race with a classic roadster"></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/Screenshot_20261110_162103.jpg" width="360" alt="Nitro drift on wet city streets"></td>
+    <td align="center"><img src="screenshots/Screenshot_20261110_012944.jpg" width="360" alt="Night race with nitro"></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -125,6 +130,10 @@ the current session; Android may still end background apps when it needs memory.
 From the game's **Options** menu, select **Recomp Settings**, above **Back**.
 Move up or down to choose a setting and left or right to change it, then select
 **Apply** to save and apply your changes without closing the game.
+
+<p align="center">
+  <img src="screenshots/Recomp-Settings.jpg" width="700" alt="Recomp Settings">
+</p>
 
 | Setting | What it changes |
 |---|---|

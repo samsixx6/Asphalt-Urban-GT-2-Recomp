@@ -44,6 +44,12 @@ Join the Discord community for news, updates, and support.
   </tr>
 </table>
 
+<p align="center"><strong>Recomp Settings</strong></p>
+
+<p align="center">
+  <img src="screenshots/Recomp-Settings.jpg" width="760" alt="Recomp Settings">
+</p>
+
 ## Features
 
 - Native builds for **Windows x64** and **Android ARM64**.
@@ -130,10 +136,6 @@ the current session; Android may still end background apps when it needs memory.
 From the game's **Options** menu, select **Recomp Settings**, above **Back**.
 Move up or down to choose a setting and left or right to change it, then select
 **Apply** to save and apply your changes without closing the game.
-
-<p align="center">
-  <img src="screenshots/Recomp-Settings.jpg" width="700" alt="Recomp Settings">
-</p>
 
 | Setting | What it changes |
 |---|---|

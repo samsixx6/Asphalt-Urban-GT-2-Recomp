@@ -21,15 +21,12 @@ Choose the file for your device from the release's **Assets** section:
 | Windows PC, x64 | [Windows ZIP](https://github.com/samsixx6/Asphalt-Urban-GT-2-Recomp/releases/download/1.0/Asphalt-Urban-GT-2-v1.0-windows-x64.zip) | Extract the whole ZIP, then open `Asphalt2.exe`. |
 | Android phone or tablet, ARM64 | [Android APK](https://github.com/samsixx6/Asphalt-Urban-GT-2-Recomp/releases/download/1.0/Asphalt-Urban-GT-2-v1.0-arm64.apk) | Install the APK, then open **Asphalt Urban GT 2**. |
 
-The **Source code** ZIP and TAR.GZ downloads are for developers. To launch the
-game, use the Windows ZIP or Android APK above.
 
 ## Community
 
 Join the Discord community for news, updates, and support.
 
 - [Join Discord](https://discord.gg/cVHYSwn9Bq)
-- [Report a problem on GitHub](https://github.com/samsixx6/Asphalt-Urban-GT-2-Recomp/issues)
 
 ## Screenshots
 
@@ -124,13 +121,6 @@ again. If the ISO was moved or deleted, you will be asked to select it again.
 6. At the title screen, tap **START**. Use the on-screen D-pad and **X** button
    to navigate menus and select items.
 
-If you decline storage access, the game stays in the launcher. Tap **Play**
-again when you are ready to grant access.
-
-After the ISO and storage access are set up, later launches go straight into the
-game while the ISO remains accessible. You can minimize the app and return to
-the current session; Android may still end background apps when it needs memory.
-
 ## Recomp Settings
 
 From the game's **Options** menu, select **Recomp Settings**, above **Back**.
@@ -146,14 +136,6 @@ Move up or down to choose a setting and left or right to change it, then select
 | FPS Counter | Shows or hides the frame-rate counter. It is **off by default**. |
 | UI Layout | Choose **Original** or **New** HUD placement. |
 
-Fresh installations start with these settings; existing saved choices are kept:
-
-| Platform | Starting settings |
-|---|---|
-| Windows | 4x resolution · Device Native · 60 FPS · Auto Accelerate Off · FPS Counter Off · Original UI |
-| Android | 2x resolution · Device Native · 60 FPS · Auto Accelerate On · FPS Counter Off · New UI |
-
-If performance is uneven, try a lower resolution scale or the 30 FPS option.
 
 ## Windows controls
 
@@ -183,9 +165,6 @@ The game's references to a Memory Stick are part of its original PSP interface.
 |---|---|
 | Windows | `%LOCALAPPDATA%\Asphalt2Recomp` — paste this into File Explorer's address bar. |
 | Android | **Internal storage/asphalt2recomp/data** (`/storage/emulated/0/asphalt2recomp/data`). |
-
-Close the game before copying either folder to make a backup. Your ISO is
-separate from these folders and must remain available to launch the game.
 
 For a Windows update, extract the new release and launch its `Asphalt2.exe`;
 your data stays in Local AppData. For Android, install the new APK from this
@@ -221,8 +200,6 @@ Windows and Android share that core, with separate desktop and mobile hosts.
 
 To build either platform yourself, start with the [build guide](docs/building.md).
 Additional Windows information is in [the Windows guide](docs/windows.md).
-You will need the supported original ISO to prepare a local game build.
-GitHub's source checks run without uploading a game ISO.
 
 ### Credits and notices
 
